@@ -29,6 +29,8 @@ import com.minimal.launcher.settings.AllAppsScreen
 import com.minimal.launcher.settings.AppSelectionScreen
 import com.minimal.launcher.settings.AppearanceSettingsScreen
 import com.minimal.launcher.settings.ClockSettingsScreen
+import com.minimal.launcher.settings.HomeSettingsScreen
+import com.minimal.launcher.settings.LayoutSettingsScreen
 import com.minimal.launcher.settings.NotificationsScreen
 import com.minimal.launcher.settings.OrderScreen
 import com.minimal.launcher.settings.SettingsScreen
@@ -38,11 +40,13 @@ import com.minimal.launcher.ui.MinimalTheme
 import com.minimal.launcher.ui.rememberNow
 
 enum class Screen {
-    HOME, ALL_APPS, SETTINGS, APPS, ORDER, CLOCK, APPEARANCE, NOTIFICATIONS, SYSTEM, ABOUT
+    HOME, ALL_APPS, SETTINGS, HOME_SETTINGS, APPS, ORDER, LAYOUT,
+    CLOCK, APPEARANCE, NOTIFICATIONS, SYSTEM, ABOUT
 }
 
 private fun Screen.back(): Screen = when (this) {
     Screen.HOME, Screen.SETTINGS, Screen.ALL_APPS -> Screen.HOME
+    Screen.APPS, Screen.ORDER, Screen.LAYOUT -> Screen.HOME_SETTINGS
     else -> Screen.SETTINGS
 }
 
@@ -104,16 +108,25 @@ private fun LauncherApp(vm: LauncherViewModel, homeSignal: Int) {
                 onOpen = { screen = it },
                 onBack = { screen = Screen.HOME },
             )
+            Screen.HOME_SETTINGS -> HomeSettingsScreen(
+                onOpen = { screen = it },
+                onBack = { screen = Screen.SETTINGS },
+            )
             Screen.APPS -> AppSelectionScreen(
                 allApps = state.allApps,
                 selectedPackages = state.homeApps.map { it.packageName }.toSet(),
-                onSave = { vm.saveApps(it); screen = Screen.SETTINGS },
-                onBack = { screen = Screen.SETTINGS },
+                onSave = { vm.saveApps(it); screen = Screen.HOME_SETTINGS },
+                onBack = { screen = Screen.HOME_SETTINGS },
             )
             Screen.ORDER -> OrderScreen(
                 apps = state.homeApps,
                 onMove = vm::moveApp,
-                onBack = { screen = Screen.SETTINGS },
+                onBack = { screen = Screen.HOME_SETTINGS },
+            )
+            Screen.LAYOUT -> LayoutSettingsScreen(
+                selected = state.settings.layout,
+                onSelect = vm::setLayout,
+                onBack = { screen = Screen.HOME_SETTINGS },
             )
             Screen.CLOCK -> ClockSettingsScreen(
                 settings = state.settings,

@@ -13,11 +13,15 @@ import java.io.IOException
 
 private val Context.dataStore by preferencesDataStore(name = "launcher_prefs")
 
+/** Exactly two home-screen layouts. */
+enum class HomeLayout { VERTICAL, TWO_COLUMNS }
+
 data class LauncherSettings(
     val showClock: Boolean = true,
     val showDate: Boolean = true,
     val use24Hour: Boolean = true,
     val showSeconds: Boolean = false,
+    val layout: HomeLayout = HomeLayout.VERTICAL,
     /** Ordered package names. null = user has never saved (use defaults). */
     val selectedApps: List<String>? = null,
 )
@@ -29,6 +33,7 @@ class AppPreferences(private val context: Context) {
         val showDate = booleanPreferencesKey("show_date")
         val use24Hour = booleanPreferencesKey("use_24h")
         val showSeconds = booleanPreferencesKey("show_seconds")
+        val layout = stringPreferencesKey("home_layout")
         val apps = stringPreferencesKey("selected_apps")
     }
 
@@ -40,6 +45,9 @@ class AppPreferences(private val context: Context) {
                 showDate = p[K.showDate] ?: true,
                 use24Hour = p[K.use24Hour] ?: true,
                 showSeconds = p[K.showSeconds] ?: false,
+                layout = p[K.layout]
+                    ?.let { runCatching { HomeLayout.valueOf(it) }.getOrNull() }
+                    ?: HomeLayout.VERTICAL,
                 selectedApps = p[K.apps]?.split("\n")?.filter { it.isNotBlank() },
             )
         }
@@ -48,6 +56,7 @@ class AppPreferences(private val context: Context) {
     suspend fun setShowDate(v: Boolean) { context.dataStore.edit { it[K.showDate] = v } }
     suspend fun setUse24Hour(v: Boolean) { context.dataStore.edit { it[K.use24Hour] = v } }
     suspend fun setShowSeconds(v: Boolean) { context.dataStore.edit { it[K.showSeconds] = v } }
+    suspend fun setLayout(v: HomeLayout) { context.dataStore.edit { it[K.layout] = v.name } }
     suspend fun setApps(list: List<String>) {
         context.dataStore.edit { it[K.apps] = list.joinToString("\n") }
     }

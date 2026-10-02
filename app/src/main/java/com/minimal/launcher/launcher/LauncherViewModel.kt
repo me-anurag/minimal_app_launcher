@@ -1,5 +1,5 @@
 package com.minimal.launcher.launcher
-
+import com.minimal.launcher.data.HomeLayout
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -56,4 +56,5 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowDate(v: Boolean) { viewModelScope.launch { prefs.setShowDate(v) } }
     fun setUse24Hour(v: Boolean) { viewModelScope.launch { prefs.setUse24Hour(v) } }
     fun setShowSeconds(v: Boolean) { viewModelScope.launch { prefs.setShowSeconds(v) } }
+    fun setLayout(v: HomeLayout) { viewModelScope.launch { prefs.setLayout(v) } }
 }

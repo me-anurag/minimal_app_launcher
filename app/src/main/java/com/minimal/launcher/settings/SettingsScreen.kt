@@ -55,13 +55,21 @@ private fun InfoRow(label: String, value: String) {
 @Composable
 fun SettingsScreen(onOpen: (Screen) -> Unit, onBack: () -> Unit) {
     ScreenFrame("SETTINGS", onBack) {
-        MinimalTextButton("Apps", { onOpen(Screen.APPS) })
-        MinimalTextButton("Order", { onOpen(Screen.ORDER) })
+        MinimalTextButton("Home Screen", { onOpen(Screen.HOME_SETTINGS) })
         MinimalTextButton("Clock", { onOpen(Screen.CLOCK) })
         MinimalTextButton("Appearance", { onOpen(Screen.APPEARANCE) })
         MinimalTextButton("Notifications", { onOpen(Screen.NOTIFICATIONS) })
         MinimalTextButton("System", { onOpen(Screen.SYSTEM) })
         MinimalTextButton("About", { onOpen(Screen.ABOUT) })
+    }
+}
+
+@Composable
+fun HomeSettingsScreen(onOpen: (Screen) -> Unit, onBack: () -> Unit) {
+    ScreenFrame("HOME SCREEN", onBack) {
+        MinimalTextButton("Apps", { onOpen(Screen.APPS) })
+        MinimalTextButton("Order", { onOpen(Screen.ORDER) })
+        MinimalTextButton("Layout", { onOpen(Screen.LAYOUT) })
     }
 }
 
@@ -114,7 +122,7 @@ fun SystemScreen(onBack: () -> Unit) {
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
     ScreenFrame("ABOUT", onBack) {
-        InfoRow("Minimal Launcher", "v1.0")
+        InfoRow("Minimal Launcher", "v2.1")
         Text(
             "Make the phone functional without making it visually distracting.",
             color = MinimalColors.Dim,
