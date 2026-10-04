@@ -1,7 +1,6 @@
 package com.minimal.launcher.ui
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
@@ -37,13 +37,12 @@ private const val COLS = 4
 
 private val EmptyBorder = Color(0xFF3A3A3A)
 private val TodayBorder = Color(0xFF8A8A8A)
-//private val FilledWhite = Color(0xFFEDEDED)
 
 // Flag artwork: 137 x 144 px, the pole sits 23% from its left edge
 private const val FLAG_ASPECT = 137f / 144f
 private const val FLAG_POLE_X = 0.232f
 
-private enum class DayState { FILLED, EMPTY, TODAY }
+private enum class DayState { FLAG, EMPTY, TODAY }
 
 @Composable
 fun UsagePanel(
@@ -53,11 +52,10 @@ fun UsagePanel(
     modifier: Modifier = Modifier,
 ) {
     val hGap = 4.dp
-    val vGap = 8.dp          // taller vertical gap so the flags have room
+    val vGap = 8.dp
     val headerHeight = 56.dp
     val spacing = 12.dp
 
-    // Box size adapts to the height we have, so the grid always fits the screen
     val box = ((availableHeight - headerHeight - spacing - vGap * (ROWS - 1)) / ROWS)
         .coerceIn(8.dp, 20.dp)
 
@@ -67,7 +65,7 @@ fun UsagePanel(
             if (usage.hasPermission) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        formatMinutes(usage.todayMinutes),
+                        UsageTracker.formatDuration(usage.todayMinutes),
                         color = MinimalColors.Text,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Light,
@@ -115,22 +113,21 @@ private fun stateFor(usage: UsageUi, index: Int): DayState {
     return when {
         day == usage.today -> DayState.TODAY            // still in progress
         day > usage.today -> DayState.EMPTY             // future
-        else -> {
-            val minutes = usage.days[day]
-            if (minutes != null && minutes < UsageTracker.LIMIT_MINUTES) DayState.FILLED
-            else DayState.EMPTY                         // 1h+ or no data
-        }
+        day in usage.rewarded -> DayState.FLAG          // under 1h AND claimed at 4 AM
+        else -> DayState.EMPTY
     }
 }
 
 @Composable
 private fun DayBox(state: DayState, size: Dp) {
-    // No fill: a conquered day is the same outlined box, with the flag planted in it
     val border = if (state == DayState.TODAY) TodayBorder else EmptyBorder
 
-    Box(Modifier.size(size).border(1.dp, border)) {
-        if (state == DayState.FILLED) {
-            // The pole's foot sits at the centre of the box; the flag rises above it
+    Box(Modifier.size(size)) {
+        // 1) the box lines first...
+        Box(Modifier.fillMaxSize().border(1.dp, border))
+
+        // 2) ...then the flag on top, so no line ever crosses it
+        if (state == DayState.FLAG) {
             val flagH = size * 0.9f
             val flagW = flagH * FLAG_ASPECT
             Image(
@@ -146,10 +143,4 @@ private fun DayBox(state: DayState, size: Dp) {
             )
         }
     }
-}
-
-private fun formatMinutes(minutes: Int?): String = when {
-    minutes == null -> "–"
-    minutes < 60 -> "${minutes}m"
-    else -> "${minutes / 60}h ${minutes % 60}m"
 }

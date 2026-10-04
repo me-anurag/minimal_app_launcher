@@ -1,5 +1,5 @@
 package com.minimal.launcher.launcher
-
+import com.minimal.launcher.ui.ClaimOverlay
 import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
@@ -28,6 +28,7 @@ import com.minimal.launcher.settings.AboutScreen
 import com.minimal.launcher.settings.AllAppsScreen
 import com.minimal.launcher.settings.AppSelectionScreen
 import com.minimal.launcher.settings.AppearanceSettingsScreen
+import com.minimal.launcher.settings.CalendarScreen
 import com.minimal.launcher.settings.ClockSettingsScreen
 import com.minimal.launcher.settings.HomeSettingsScreen
 import com.minimal.launcher.settings.LayoutSettingsScreen
@@ -43,12 +44,13 @@ import com.minimal.launcher.usage.UsageTracker
 
 enum class Screen {
     HOME, ALL_APPS, SETTINGS, HOME_SETTINGS, APPS, ORDER, LAYOUT,
-    CLOCK, USAGE, APPEARANCE, NOTIFICATIONS, SYSTEM, ABOUT
+    CLOCK, USAGE, CALENDAR, APPEARANCE, NOTIFICATIONS, SYSTEM, ABOUT
 }
 
 private fun Screen.back(): Screen = when (this) {
     Screen.HOME, Screen.SETTINGS, Screen.ALL_APPS -> Screen.HOME
     Screen.APPS, Screen.ORDER, Screen.LAYOUT -> Screen.HOME_SETTINGS
+    Screen.CALENDAR -> Screen.USAGE
     else -> Screen.SETTINGS
 }
 
@@ -84,6 +86,7 @@ class LauncherActivity : ComponentActivity() {
 private fun LauncherApp(vm: LauncherViewModel, homeSignal: Int) {
     val state by vm.state.collectAsStateWithLifecycle()
     val usage by vm.usage.collectAsStateWithLifecycle()
+    val claim by vm.claim.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
     val context = LocalContext.current
 
@@ -106,6 +109,16 @@ private fun LauncherApp(vm: LauncherViewModel, homeSignal: Int) {
                     onSettings = { screen = Screen.SETTINGS },
                     onGrantUsageAccess = { UsageTracker.openAccessSettings(context) },
                 )
+                // 4 AM bar + sound + golden poppers, drawn over everything on the home screen
+                if (state.settings.showUsage) {
+                    ClaimOverlay(
+                        nowMillis = now,
+                        usage = usage,
+                        claim = claim,
+                        celebrate = vm.celebrate,
+                        onClaim = vm::claimMorningReward,
+                    )
+                }
             }
             Screen.ALL_APPS -> AllAppsScreen(
                 allApps = state.allApps,
@@ -147,8 +160,13 @@ private fun LauncherApp(vm: LauncherViewModel, homeSignal: Int) {
             Screen.USAGE -> UsageSettingsScreen(
                 enabled = state.settings.showUsage,
                 onToggle = vm::setShowUsage,
+                onOpenCalendar = { screen = Screen.CALENDAR },
                 onRestartTracking = vm::restartUsageTracking,
                 onBack = { screen = Screen.SETTINGS },
+            )
+            Screen.CALENDAR -> CalendarScreen(
+                usage = usage,
+                onBack = { screen = Screen.USAGE },
             )
             Screen.APPEARANCE -> AppearanceSettingsScreen { screen = Screen.SETTINGS }
             Screen.NOTIFICATIONS -> NotificationsScreen { screen = Screen.SETTINGS }

@@ -123,7 +123,7 @@ fun SystemScreen(onBack: () -> Unit) {
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
     ScreenFrame("ABOUT", onBack) {
-        InfoRow("Minimal Launcher", "v2.1")
+        InfoRow("Minimal Launcher", "v1.0")
         Text(
             "Make the phone functional without making it visually distracting.",
             color = MinimalColors.Dim,

@@ -21,6 +21,7 @@ import com.minimal.launcher.usage.UsageTracker
 fun UsageSettingsScreen(
     enabled: Boolean,
     onToggle: (Boolean) -> Unit,
+    onOpenCalendar: () -> Unit,
     onRestartTracking: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -46,6 +47,7 @@ fun UsageSettingsScreen(
             trailing = if (granted) "GRANTED" else "NOT GRANTED",
             fontSize = 20.sp,
         )
+        MinimalTextButton("Calendar", onOpenCalendar, fontSize = 20.sp)
         MinimalTextButton(
             text = if (confirmRestart) "Tap again to confirm" else "Start tracking from today",
             onClick = {
@@ -60,9 +62,9 @@ fun UsageSettingsScreen(
             fontSize = 20.sp,
         )
         Text(
-            "Shows today's phone use and a 4 × 15 day grid on the Vertical home screen. " +
-                    "A finished day under 1 hour becomes a white box. " +
-                    "\"Start tracking from today\" clears the grid and begins again from today.",
+            "A day earns a flag only if screen time stays under 1 hour AND you press " +
+                    "\"I am ready\" at 4:00 AM the next morning (the button is there for one minute). " +
+                    "\"Start tracking from today\" clears the grid, the calendar and all flags.",
             color = MinimalColors.Dim,
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 16.dp),

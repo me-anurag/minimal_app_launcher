@@ -1,5 +1,7 @@
 package com.minimal.launcher.launcher
-import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,10 +9,12 @@ import com.minimal.launcher.apps.AppEntry
 import com.minimal.launcher.apps.InstalledAppsProvider
 import com.minimal.launcher.data.AppPreferences
 import com.minimal.launcher.data.HomeLayout
+import com.minimal.launcher.usage.ClaimResult
 import com.minimal.launcher.usage.UsageTracker
 import com.minimal.launcher.usage.UsageUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +48,14 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     val usage: StateFlow<UsageUi> = _usage
     private var usageJob: Job? = null
 
+    private val _claim = MutableStateFlow<ClaimResult?>(null)
+    val claim: StateFlow<ClaimResult?> = _claim
+
+    /** One-shot event, fired once when a flag is earned (sound + confetti). */
+    private val _celebrate = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val celebrate: SharedFlow<Unit> = _celebrate.asSharedFlow()
+    private var claimJob: Job? = null
+
     /**
      * Recomputes today's usage and finalizes any finished days.
      * Called when the home screen starts and once per minute while it is visible.
@@ -72,22 +84,70 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 todayMinutes = UsageTracker.minutesForDay(app, today, now) ?: 0
             }
-            if (log.keys.removeAll { it < today - 130 }) changed = true
+            if (log.keys.removeAll { it < today - 800 }) changed = true
             if (changed) prefs.saveUsageLog(start, log)
 
             // Grid restarts every 60 days
             val cycleStart = start + (maxOf(0L, today - start) / 60) * 60
-            _usage.value = UsageUi(granted, todayMinutes, today, cycleStart, log)
+            _usage.value = UsageUi(granted, todayMinutes, today, cycleStart, log, prefs.getRewarded())
         }
     }
-    /** Clears the history and makes today box #1. No backfill of earlier days. */
+
+    /**
+     * The 4 AM button. Rewards YESTERDAY only if yesterday's screen time was under the limit.
+     * Only valid during the claim minute.
+     */
+    /**
+     * The 4 AM button. Rewards YESTERDAY only if yesterday's screen time was under the limit.
+     * Only valid during the claim minute.
+     */
+    fun claimMorningReward() {
+        if (claimJob?.isActive == true) return          // ignore double taps
+        claimJob = viewModelScope.launch(Dispatchers.Default) {
+            val app = getApplication<Application>()
+            val now = System.currentTimeMillis()
+            if (!UsageTracker.inClaimWindow(now)) return@launch
+            usageJob?.join()
+
+            val yesterday = LocalDate.now().toEpochDay() - 1
+            fun say(text: String, earned: Boolean = false) {
+                _claim.value = ClaimResult(yesterday, text, earned)
+            }
+
+            val rewarded = prefs.getRewarded()
+            val (start, _) = prefs.getUsageLog()
+            when {
+                yesterday in rewarded -> say("Flag already claimed")
+                !UsageTracker.hasPermission(app) -> say("Allow usage access first")
+                start != null && yesterday < start -> say("Nothing to claim yet")
+                else -> {
+                    val minutes = UsageTracker.minutesForDay(app, yesterday, now)
+                    when {
+                        minutes == null -> say("No data for yesterday")
+                        minutes < UsageTracker.LIMIT_MINUTES -> {
+                            prefs.saveRewarded(rewarded + yesterday)
+                            say("Flag earned!", earned = true)
+                            _celebrate.tryEmit(Unit)       // sound + golden poppers
+                        }
+                        else -> say("Yesterday ${UsageTracker.formatDuration(minutes)}. No flag")
+                    }
+                }
+            }
+            refreshUsage()
+        }
+    }
+
+    /** Clears the history and the earned flags, and makes today box #1. */
     fun restartUsageTracking() {
         viewModelScope.launch(Dispatchers.Default) {
             usageJob?.cancelAndJoin()   // make sure an in-flight refresh can't write old data back
             prefs.saveUsageLog(LocalDate.now().toEpochDay(), emptyMap())
+            prefs.saveRewarded(emptySet())
+            _claim.value = null
             refreshUsage()
         }
     }
+
     // ---------------- Apps ----------------
 
     /** Called from onStart so newly installed / removed apps show up. */

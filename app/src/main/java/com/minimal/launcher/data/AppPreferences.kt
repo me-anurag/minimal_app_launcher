@@ -40,6 +40,7 @@ class AppPreferences(private val context: Context) {
         val showUsage = booleanPreferencesKey("show_usage")
         val usageStart = longPreferencesKey("usage_start_day")
         val usageLog = stringPreferencesKey("usage_log")
+        val rewarded = stringPreferencesKey("usage_rewarded")
         val apps = stringPreferencesKey("selected_apps")
     }
 
@@ -89,5 +90,16 @@ class AppPreferences(private val context: Context) {
             it[K.usageStart] = startDay
             it[K.usageLog] = log.entries.joinToString(",") { e -> "${e.key}:${e.value}" }
         }
+    }
+
+    // ---- Days whose flag was earned (under 1h AND claimed at 4 AM) ----
+
+    suspend fun getRewarded(): Set<Long> {
+        val p = context.dataStore.data.catch { emit(emptyPreferences()) }.first()
+        return p[K.rewarded]?.split(",")?.mapNotNull { it.toLongOrNull() }?.toSet() ?: emptySet()
+    }
+
+    suspend fun saveRewarded(days: Set<Long>) {
+        context.dataStore.edit { it[K.rewarded] = days.sorted().joinToString(",") }
     }
 }

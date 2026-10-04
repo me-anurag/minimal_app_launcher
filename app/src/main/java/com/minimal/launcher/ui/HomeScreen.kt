@@ -110,7 +110,6 @@ fun HomeScreen(
         Spacer(Modifier.height(4.dp))
 
         // ---- 3. APP AREA (only this area scrolls) ----
-        // ---- 3. APP AREA (only this area scrolls) ----
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val areaHeight = maxHeight   // read it here, before entering Row/Box scopes
 
