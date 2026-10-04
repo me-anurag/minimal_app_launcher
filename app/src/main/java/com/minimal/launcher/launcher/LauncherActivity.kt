@@ -35,13 +35,15 @@ import com.minimal.launcher.settings.NotificationsScreen
 import com.minimal.launcher.settings.OrderScreen
 import com.minimal.launcher.settings.SettingsScreen
 import com.minimal.launcher.settings.SystemScreen
+import com.minimal.launcher.settings.UsageSettingsScreen
 import com.minimal.launcher.ui.HomeScreen
 import com.minimal.launcher.ui.MinimalTheme
 import com.minimal.launcher.ui.rememberNow
+import com.minimal.launcher.usage.UsageTracker
 
 enum class Screen {
     HOME, ALL_APPS, SETTINGS, HOME_SETTINGS, APPS, ORDER, LAYOUT,
-    CLOCK, APPEARANCE, NOTIFICATIONS, SYSTEM, ABOUT
+    CLOCK, USAGE, APPEARANCE, NOTIFICATIONS, SYSTEM, ABOUT
 }
 
 private fun Screen.back(): Screen = when (this) {
@@ -66,6 +68,7 @@ class LauncherActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         vm.refreshApps()
+        vm.refreshUsage()   // also picks up a freshly granted usage-access permission
     }
 
     // Home button pressed while we're already running -> go back to the home screen
@@ -80,6 +83,7 @@ class LauncherActivity : ComponentActivity() {
 @Composable
 private fun LauncherApp(vm: LauncherViewModel, homeSignal: Int) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val usage by vm.usage.collectAsStateWithLifecycle()
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
     val context = LocalContext.current
 
@@ -91,12 +95,16 @@ private fun LauncherApp(vm: LauncherViewModel, homeSignal: Int) {
         when (screen) {
             Screen.HOME -> {
                 val now by rememberNow(state.settings.showSeconds)
+                // Refresh usage once per minute, only while the home screen is visible
+                LaunchedEffect(now / 60_000L) { vm.refreshUsage() }
                 HomeScreen(
                     state = state,
+                    usage = usage,
                     nowMillis = now,
                     onAppClick = { AppLauncher.launch(context, it.packageName) },
                     onAllApps = { screen = Screen.ALL_APPS },
                     onSettings = { screen = Screen.SETTINGS },
+                    onGrantUsageAccess = { UsageTracker.openAccessSettings(context) },
                 )
             }
             Screen.ALL_APPS -> AllAppsScreen(
@@ -134,6 +142,12 @@ private fun LauncherApp(vm: LauncherViewModel, homeSignal: Int) {
                 onShowDate = vm::setShowDate,
                 onUse24Hour = vm::setUse24Hour,
                 onShowSeconds = vm::setShowSeconds,
+                onBack = { screen = Screen.SETTINGS },
+            )
+            Screen.USAGE -> UsageSettingsScreen(
+                enabled = state.settings.showUsage,
+                onToggle = vm::setShowUsage,
+                onRestartTracking = vm::restartUsageTracking,
                 onBack = { screen = Screen.SETTINGS },
             )
             Screen.APPEARANCE -> AppearanceSettingsScreen { screen = Screen.SETTINGS }

@@ -4,10 +4,12 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
@@ -22,6 +24,7 @@ data class LauncherSettings(
     val use24Hour: Boolean = true,
     val showSeconds: Boolean = false,
     val layout: HomeLayout = HomeLayout.VERTICAL,
+    val showUsage: Boolean = true,
     /** Ordered package names. null = user has never saved (use defaults). */
     val selectedApps: List<String>? = null,
 )
@@ -34,6 +37,9 @@ class AppPreferences(private val context: Context) {
         val use24Hour = booleanPreferencesKey("use_24h")
         val showSeconds = booleanPreferencesKey("show_seconds")
         val layout = stringPreferencesKey("home_layout")
+        val showUsage = booleanPreferencesKey("show_usage")
+        val usageStart = longPreferencesKey("usage_start_day")
+        val usageLog = stringPreferencesKey("usage_log")
         val apps = stringPreferencesKey("selected_apps")
     }
 
@@ -48,6 +54,7 @@ class AppPreferences(private val context: Context) {
                 layout = p[K.layout]
                     ?.let { runCatching { HomeLayout.valueOf(it) }.getOrNull() }
                     ?: HomeLayout.VERTICAL,
+                showUsage = p[K.showUsage] ?: true,
                 selectedApps = p[K.apps]?.split("\n")?.filter { it.isNotBlank() },
             )
         }
@@ -57,7 +64,30 @@ class AppPreferences(private val context: Context) {
     suspend fun setUse24Hour(v: Boolean) { context.dataStore.edit { it[K.use24Hour] = v } }
     suspend fun setShowSeconds(v: Boolean) { context.dataStore.edit { it[K.showSeconds] = v } }
     suspend fun setLayout(v: HomeLayout) { context.dataStore.edit { it[K.layout] = v.name } }
+    suspend fun setShowUsage(v: Boolean) { context.dataStore.edit { it[K.showUsage] = v } }
     suspend fun setApps(list: List<String>) {
         context.dataStore.edit { it[K.apps] = list.joinToString("\n") }
+    }
+
+    // ---- Screen-time history: finished days only, stored as "epochDay:minutes,..." ----
+
+    /** Returns (first tracked epoch day or null, finished-day minutes). */
+    suspend fun getUsageLog(): Pair<Long?, Map<Long, Int>> {
+        val p = context.dataStore.data.catch { emit(emptyPreferences()) }.first()
+        val log = HashMap<Long, Int>()
+        p[K.usageLog]?.split(",")?.forEach { entry ->
+            val parts = entry.split(":")
+            val day = parts.getOrNull(0)?.toLongOrNull()
+            val minutes = parts.getOrNull(1)?.toIntOrNull()
+            if (day != null && minutes != null) log[day] = minutes
+        }
+        return p[K.usageStart] to log
+    }
+
+    suspend fun saveUsageLog(startDay: Long, log: Map<Long, Int>) {
+        context.dataStore.edit {
+            it[K.usageStart] = startDay
+            it[K.usageLog] = log.entries.joinToString(",") { e -> "${e.key}:${e.value}" }
+        }
     }
 }

@@ -57,6 +57,7 @@ fun SettingsScreen(onOpen: (Screen) -> Unit, onBack: () -> Unit) {
     ScreenFrame("SETTINGS", onBack) {
         MinimalTextButton("Home Screen", { onOpen(Screen.HOME_SETTINGS) })
         MinimalTextButton("Clock", { onOpen(Screen.CLOCK) })
+        MinimalTextButton("Screen Time", { onOpen(Screen.USAGE) })
         MinimalTextButton("Appearance", { onOpen(Screen.APPEARANCE) })
         MinimalTextButton("Notifications", { onOpen(Screen.NOTIFICATIONS) })
         MinimalTextButton("System", { onOpen(Screen.SYSTEM) })

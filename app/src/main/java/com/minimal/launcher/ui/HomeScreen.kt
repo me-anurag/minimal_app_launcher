@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.minimal.launcher.apps.AppEntry
 import com.minimal.launcher.data.HomeLayout
 import com.minimal.launcher.launcher.LauncherUiState
+import com.minimal.launcher.usage.UsageUi
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -40,10 +41,12 @@ import kotlin.math.max
 @Composable
 fun HomeScreen(
     state: LauncherUiState,
+    usage: UsageUi,
     nowMillis: Long,
     onAppClick: (AppEntry) -> Unit,
     onAllApps: () -> Unit,
     onSettings: () -> Unit,
+    onGrantUsageAccess: () -> Unit,
 ) {
     val s = state.settings
     val twoColumns = s.layout == HomeLayout.TWO_COLUMNS
@@ -54,7 +57,7 @@ fun HomeScreen(
                 (if (s.use24Hour) "" else " a")
         DateTimeFormatter.ofPattern(pattern)
     }
-    val dateFmt = remember { DateTimeFormatter.ofPattern("EEEE, dd MMM") }
+    val dateFmt = remember { DateTimeFormatter.ofPattern("EEE '·' dd MMM") }
     val dt = Instant.ofEpochMilli(nowMillis).atZone(ZoneId.systemDefault())
 
     Column(
@@ -88,7 +91,6 @@ fun HomeScreen(
 
         // ---- 2. ACTION BUTTONS (fixed, same position in both layouts) ----
         if (twoColumns) {
-            // Centered over their own halves, matching the two equal app columns
             Row(Modifier.fillMaxWidth()) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     NavText("All Apps", onAllApps)
@@ -98,7 +100,6 @@ fun HomeScreen(
                 }
             }
         } else {
-            // Left-aligned with the single app column (same 12dp text inset as app labels)
             Row(Modifier.fillMaxWidth()) {
                 NavText("All Apps", onAllApps)
                 NavText("Settings", onSettings)
@@ -108,22 +109,43 @@ fun HomeScreen(
         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF222222)))
         Spacer(Modifier.height(4.dp))
 
-        // ---- 3. HOME APPS (only this area scrolls) ----
+        // ---- 3. APP AREA (only this area scrolls) ----
+        // ---- 3. APP AREA (only this area scrolls) ----
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            if (state.homeApps.isEmpty()) {
-                Text(
-                    "No apps selected.\nOpen Settings → Home Screen → Apps.",
-                    color = MinimalColors.Dim,
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(top = 16.dp, start = 12.dp),
-                )
-            } else if (twoColumns) {
-                TwoColumnApps(state.homeApps, availableHeight = maxHeight, onAppClick = onAppClick)
+            val areaHeight = maxHeight   // read it here, before entering Row/Box scopes
+
+            if (twoColumns) {
+                if (state.homeApps.isEmpty()) EmptyHint()
+                else TwoColumnApps(state.homeApps, availableHeight = areaHeight, onAppClick = onAppClick)
             } else {
-                VerticalApps(state.homeApps, onAppClick = onAppClick)
+                Row(Modifier.fillMaxSize()) {
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                        if (state.homeApps.isEmpty()) EmptyHint()
+                        else VerticalApps(state.homeApps, onAppClick)
+                    }
+                    // Screen-time panel lives on the empty right side (Vertical layout only)
+                    if (s.showUsage) {
+                        UsagePanel(
+                            usage = usage,
+                            availableHeight = areaHeight,
+                            onGrantAccess = onGrantUsageAccess,
+                            modifier = Modifier.padding(start = 8.dp, top = 4.dp),
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun EmptyHint() {
+    Text(
+        "No apps selected.\nOpen Settings → Home Screen → Apps.",
+        color = MinimalColors.Dim,
+        fontSize = 16.sp,
+        modifier = Modifier.padding(top = 16.dp, start = 12.dp),
+    )
 }
 
 @Composable
@@ -153,7 +175,6 @@ private fun rememberRowHeight(): Dp = with(LocalDensity.current) { 26.sp.toDp() 
 @Composable
 private fun VerticalApps(apps: List<AppEntry>, onAppClick: (AppEntry) -> Unit) {
     val rowHeight = rememberRowHeight()
-    // Scrolls automatically only when the list is taller than the available space
     LazyColumn(Modifier.fillMaxSize()) {
         items(apps, key = { it.packageName }) { app ->
             AppCell(app, Modifier.fillMaxWidth().height(rowHeight)) { onAppClick(app) }
@@ -177,12 +198,10 @@ private fun TwoColumnApps(
     val left = apps.take(rowsNeeded)
     val right = apps.drop(rowsNeeded)
 
-    // Scrolling only when both columns are out of room
     LazyColumn(Modifier.fillMaxSize(), userScrollEnabled = rowsNeeded > rowsFit) {
         items(rowsNeeded, key = { left[it].packageName }) { i ->
             val rightApp = right.getOrNull(i)
             Row(Modifier.fillMaxWidth().height(rowHeight)) {
-                // Two identical cells: equal weight, equal padding, no spacer or offset
                 AppCell(left[i], Modifier.weight(1f)) { onAppClick(left[i]) }
                 AppCell(rightApp, Modifier.weight(1f)) { rightApp?.let(onAppClick) }
             }
@@ -204,7 +223,7 @@ private fun AppCell(app: AppEntry?, modifier: Modifier, onClick: () -> Unit) {
                 role = Role.Button,
                 onClick = onClick,
             )
-            .padding(horizontal = 12.dp),          // identical inset everywhere
+            .padding(horizontal = 12.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         if (app != null) {
