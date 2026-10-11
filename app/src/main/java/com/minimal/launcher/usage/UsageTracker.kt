@@ -29,7 +29,7 @@ data class ClaimResult(val day: Long, val text: String, val earned: Boolean = fa
 
 object UsageTracker {
     /** A day must stay under this many minutes to be eligible for a flag. */
-    const val LIMIT_MINUTES = 60
+    const val LIMIT_MINUTES = 120
 
     /** The claim button is visible from CLAIM_HOUR:CLAIM_MINUTE:00 to :59 only. */
     const val CLAIM_HOUR = 4
